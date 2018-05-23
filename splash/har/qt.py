@@ -139,14 +139,28 @@ def reply2har(reply, content=None):
 
 
 def request2har(request, operation, outgoing_data=None):
+
     """ Serialize QNetworkRequest to HAR. """
-    return {
-        "method": OPERATION_NAMES.get(operation, '?'),
-        "url": str(request.url().toString()),
-        "httpVersion": "HTTP/1.1",
-        "cookies": request_cookies2har(request),
-        "queryString": querystring2har(request.url()),
-        "headers": headers2har(request),
-        "headersSize": headers_size(request),
-        "bodySize": outgoing_data.size() if outgoing_data is not None else -1,
+    har = {
+         "method": OPERATION_NAMES.get(operation, '?'),
+         "url": str(request.url().toString()),
+         "httpVersion": "HTTP/1.1",
+         "queryString": querystring2har(request.url()),
+         "headers": headers2har(request),
+         "headersSize": headers_size(request),
+         "bodySize": -1
     }
+
+    if outgoing_data is not None:
+        # The QIODevice has size 0 until the first read or peek attempt, upon
+        # which it is initialised.
+        # TODO: Find out why and how this happens.
+        if outgoing_data.pos() == 0:
+            outgoing_data.peek(1)
+            har["bodySize"] = outgoing_data.size()
+            har["postData"] = {
+                "mimeType": "?",
+                "text": bytes(outgoing_data.peek(outgoing_data.size()))
+            }
+
+    return har
